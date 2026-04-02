@@ -45,6 +45,28 @@ You can verify the imported rows with:
 sqlite3 students.db "SELECT * FROM students;"
 ```
 
+## Basic queries
+
+Once the data is loaded, you can run basic SQLite queries from the command line.
+
+Show all rows:
+
+```bash
+sqlite3 students.db "SELECT * FROM students;"
+```
+
+Use `WHERE` to filter rows:
+
+```bash
+sqlite3 students.db "SELECT name, gpa FROM students WHERE gpa > 3.5;"
+```
+
+Use `LIMIT` to return only a few rows:
+
+```bash
+sqlite3 students.db "SELECT * FROM students LIMIT 2;"
+```
+
 ## Re-enter the environment later
 
 When you return to the project, reactivate the virtual environment before running the loader:
