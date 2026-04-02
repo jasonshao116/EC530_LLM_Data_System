@@ -1,0 +1,5 @@
+student_id,name,major,gpa,graduated
+1001,Alice Chen,Computer Science,3.8,True
+1002,Brian Lee,Data Science,3.5,False
+1003,Carla Gomez,Electrical Engineering,3.9,True
+1004,David Kim,Mathematics,3.2,False
