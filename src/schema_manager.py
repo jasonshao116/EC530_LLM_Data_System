@@ -1,4 +1,4 @@
-"""Schema management utilities for inferring and creating SQLite tables from CSV data."""
+"""Schema management utilities for inferring and comparing SQLite table schemas."""
 
 from __future__ import annotations
 
@@ -75,8 +75,14 @@ class TableSchema:
     columns: tuple[ColumnSchema, ...]
 
 
+@dataclass(frozen=True)
+class SchemaComparison:
+    matches: bool
+    message: str
+
+
 class SchemaManager:
-    """Infer schemas from CSV data and create matching SQLite tables."""
+    """Infer, inspect, compare, and create SQLite table schemas."""
 
     def infer_schema_from_dataframe(self, df: pd.DataFrame, table_name: str) -> tuple[TableSchema, pd.DataFrame]:
         """Return a normalized schema and a DataFrame with normalized column names."""
@@ -116,3 +122,57 @@ class SchemaManager:
         """Create a SQLite table matching the provided schema."""
         connection.execute(self.build_create_table_sql(schema))
 
+    def table_exists(self, connection: sqlite3.Connection, table_name: str) -> bool:
+        """Return whether a table exists in the SQLite database."""
+        normalized_table_name = normalize_identifier(table_name)
+        existing = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (normalized_table_name,),
+        ).fetchone()
+        return existing is not None
+
+    def get_existing_schema(
+        self, connection: sqlite3.Connection, table_name: str
+    ) -> TableSchema | None:
+        """Read an existing table schema using PRAGMA table_info()."""
+        normalized_table_name = normalize_identifier(table_name)
+        pragma_sql = f"PRAGMA table_info({quote_identifier(normalized_table_name)})"
+        rows = connection.execute(pragma_sql).fetchall()
+        if not rows:
+            return None
+
+        columns = tuple(
+            ColumnSchema(
+                name=row[1],
+                sqlite_type=(row[2] or "TEXT").upper(),
+                source_name=row[1],
+            )
+            for row in rows
+        )
+        return TableSchema(table_name=normalized_table_name, columns=columns)
+
+    def compare_schemas(
+        self, expected_schema: TableSchema, existing_schema: TableSchema | None
+    ) -> SchemaComparison:
+        """Compare two schemas and describe whether they are compatible."""
+        if existing_schema is None:
+            return SchemaComparison(matches=False, message="Table does not exist yet.")
+
+        expected_columns = [
+            (column.name, column.sqlite_type.upper()) for column in expected_schema.columns
+        ]
+        existing_columns = [
+            (column.name, column.sqlite_type.upper()) for column in existing_schema.columns
+        ]
+
+        if expected_columns == existing_columns:
+            return SchemaComparison(matches=True, message="Existing schema matches incoming CSV schema.")
+
+        return SchemaComparison(
+            matches=False,
+            message=(
+                "Schema conflict detected. "
+                f"Incoming columns: {expected_columns}. "
+                f"Existing columns: {existing_columns}."
+            ),
+        )

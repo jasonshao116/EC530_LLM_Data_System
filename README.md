@@ -39,6 +39,18 @@ This command:
 - creates a table named `students`
 - inserts the CSV rows into that table
 
+If a table already exists with a different schema, the loader now checks the
+existing structure with `PRAGMA table_info()` and lets you choose whether to
+`overwrite`, `rename`, or `skip`.
+
+Example with an explicit policy:
+
+```bash
+python3 src/data_loader.py src/example_data.csv students.db students --if-exists append --on-schema-conflict rename
+```
+
+Any runtime errors are appended to `error_log.txt` in the project root.
+
 You can verify the imported rows with:
 
 ```bash
