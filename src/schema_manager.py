@@ -131,6 +131,18 @@ class SchemaManager:
         ).fetchone()
         return existing is not None
 
+    def list_tables(self, connection: sqlite3.Connection) -> list[str]:
+        """Return user tables in the SQLite database."""
+        rows = connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+            ORDER BY name
+            """
+        ).fetchall()
+        return [row[0] for row in rows]
+
     def get_existing_schema(
         self, connection: sqlite3.Connection, table_name: str
     ) -> TableSchema | None:
@@ -176,3 +188,27 @@ class SchemaManager:
                 f"Existing columns: {existing_columns}."
             ),
         )
+
+    def find_matching_table(
+        self, connection: sqlite3.Connection, expected_schema: TableSchema
+    ) -> str | None:
+        """Find an existing table whose normalized schema exactly matches the incoming schema."""
+        for table_name in self.list_tables(connection):
+            existing_schema = self.get_existing_schema(connection, table_name)
+            comparison = self.compare_schemas(expected_schema, existing_schema)
+            if comparison.matches:
+                return table_name
+        return None
+
+    def next_available_table_name(self, connection: sqlite3.Connection, base_name: str) -> str:
+        """Return the next unused table name based on a preferred base name."""
+        normalized_base_name = normalize_identifier(base_name)
+        if not self.table_exists(connection, normalized_base_name):
+            return normalized_base_name
+
+        suffix = 1
+        candidate = f"{normalized_base_name}_{suffix}"
+        while self.table_exists(connection, candidate):
+            suffix += 1
+            candidate = f"{normalized_base_name}_{suffix}"
+        return candidate

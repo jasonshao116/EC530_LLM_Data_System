@@ -51,6 +51,17 @@ python3 src/data_loader.py src/example_data.csv students.db students --if-exists
 
 Any runtime errors are appended to `error_log.txt` in the project root.
 
+To use schema matching mode from Part 3, run:
+
+```bash
+python3 src/data_loader.py src/example_data.csv students.db students --match-existing-schema
+```
+
+In this mode, the loader:
+
+- appends to an existing table if normalized column names and SQLite data types match exactly
+- creates a new table if no existing table matches
+
 You can verify the imported rows with:
 
 ```bash

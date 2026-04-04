@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from schema_manager import SchemaManager, normalize_identifier, quote_identifier
+from schema_manager import SchemaManager, TableSchema, normalize_identifier, quote_identifier
 
 
 def log_error(message: str, log_path: str | Path = "error_log.txt") -> None:
@@ -39,6 +39,7 @@ def load_csv_to_sqlite(
     table_name: str,
     if_exists: str = "replace",
     on_schema_conflict: str = "prompt",
+    match_existing_schema: bool = False,
 ) -> tuple[int, str]:
     """
     Load a CSV file into a SQLite table.
@@ -73,6 +74,31 @@ def load_csv_to_sqlite(
 
     with sqlite3.connect(db_path) as connection:
         cursor = connection.cursor()
+
+        if match_existing_schema:
+            matched_table_name = schema_manager.find_matching_table(connection, schema)
+            if matched_table_name is not None:
+                normalized_table_name = matched_table_name
+                schema = TableSchema(table_name=normalized_table_name, columns=schema.columns)
+                insert_sql = (
+                    f"INSERT INTO {quote_identifier(normalized_table_name)} "
+                    f"({quoted_columns}) VALUES ({placeholders})"
+                )
+            else:
+                normalized_table_name = schema_manager.next_available_table_name(
+                    connection, normalized_table_name
+                )
+                schema = TableSchema(table_name=normalized_table_name, columns=schema.columns)
+                insert_sql = (
+                    f"INSERT INTO {quote_identifier(normalized_table_name)} "
+                    f"({quoted_columns}) VALUES ({placeholders})"
+                )
+                schema_manager.create_table(connection, schema)
+
+            cursor.executemany(insert_sql, records)
+            connection.commit()
+            return len(renamed_df), normalized_table_name
+
         existing_schema = schema_manager.get_existing_schema(connection, normalized_table_name)
         comparison = schema_manager.compare_schemas(schema, existing_schema)
         table_exists = existing_schema is not None
@@ -144,6 +170,11 @@ def main() -> None:
         choices=["prompt", "overwrite", "rename", "skip"],
         help="Behavior when an existing table has a different schema.",
     )
+    parser.add_argument(
+        "--match-existing-schema",
+        action="store_true",
+        help="Append to an existing table when column names and types match exactly; otherwise create a new table.",
+    )
     args = parser.parse_args()
     try:
         inserted_rows, loaded_table_name = load_csv_to_sqlite(
@@ -152,6 +183,7 @@ def main() -> None:
             table_name=args.table_name,
             if_exists=args.if_exists,
             on_schema_conflict=args.on_schema_conflict,
+            match_existing_schema=args.match_existing_schema,
         )
         print(
             f"Loaded {inserted_rows} rows from {args.csv_path} into "
