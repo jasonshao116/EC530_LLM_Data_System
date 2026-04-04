@@ -62,6 +62,12 @@ In this mode, the loader:
 - appends to an existing table if normalized column names and SQLite data types match exactly
 - creates a new table if no existing table matches
 
+Newly created tables also include an auto-generated primary key column:
+
+```sql
+id INTEGER PRIMARY KEY AUTOINCREMENT
+```
+
 You can verify the imported rows with:
 
 ```bash

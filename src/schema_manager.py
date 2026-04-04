@@ -67,6 +67,7 @@ class ColumnSchema:
     name: str
     sqlite_type: str
     source_name: str
+    is_primary_key: bool = False
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,9 @@ class SchemaComparison:
 class SchemaManager:
     """Infer, inspect, compare, and create SQLite table schemas."""
 
+    MANAGED_PRIMARY_KEY_NAME = "id"
+    MANAGED_PRIMARY_KEY_SQL = '"id" INTEGER PRIMARY KEY AUTOINCREMENT'
+
     def infer_schema_from_dataframe(self, df: pd.DataFrame, table_name: str) -> tuple[TableSchema, pd.DataFrame]:
         """Return a normalized schema and a DataFrame with normalized column names."""
         if df.empty and len(df.columns) == 0:
@@ -98,6 +102,7 @@ class SchemaManager:
                     name=column_name,
                     sqlite_type=infer_sqlite_type(normalized_df[column_name]),
                     source_name=source_name,
+                    is_primary_key=False,
                 )
                 for source_name, column_name in column_mapping.items()
             ),
@@ -116,6 +121,10 @@ class SchemaManager:
             f"{quote_identifier(column.name)} {column.sqlite_type}"
             for column in schema.columns
         )
+        if column_defs:
+            column_defs = f"{self.MANAGED_PRIMARY_KEY_SQL}, {column_defs}"
+        else:
+            column_defs = self.MANAGED_PRIMARY_KEY_SQL
         return f"CREATE TABLE {quote_identifier(schema.table_name)} ({column_defs})"
 
     def create_table(self, connection: sqlite3.Connection, schema: TableSchema) -> None:
@@ -158,10 +167,20 @@ class SchemaManager:
                 name=row[1],
                 sqlite_type=(row[2] or "TEXT").upper(),
                 source_name=row[1],
+                is_primary_key=bool(row[5]),
             )
             for row in rows
         )
         return TableSchema(table_name=normalized_table_name, columns=columns)
+
+    def _comparable_columns(self, schema: TableSchema) -> list[tuple[str, str]]:
+        """Return columns used for CSV-to-table schema comparison."""
+        comparable_columns: list[tuple[str, str]] = []
+        for column in schema.columns:
+            if column.is_primary_key and column.name == self.MANAGED_PRIMARY_KEY_NAME:
+                continue
+            comparable_columns.append((column.name, column.sqlite_type.upper()))
+        return comparable_columns
 
     def compare_schemas(
         self, expected_schema: TableSchema, existing_schema: TableSchema | None
@@ -170,12 +189,8 @@ class SchemaManager:
         if existing_schema is None:
             return SchemaComparison(matches=False, message="Table does not exist yet.")
 
-        expected_columns = [
-            (column.name, column.sqlite_type.upper()) for column in expected_schema.columns
-        ]
-        existing_columns = [
-            (column.name, column.sqlite_type.upper()) for column in existing_schema.columns
-        ]
+        expected_columns = self._comparable_columns(expected_schema)
+        existing_columns = self._comparable_columns(existing_schema)
 
         if expected_columns == existing_columns:
             return SchemaComparison(matches=True, message="Existing schema matches incoming CSV schema.")
