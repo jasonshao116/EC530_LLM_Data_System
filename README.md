@@ -96,6 +96,36 @@ Use `LIMIT` to return only a few rows:
 sqlite3 students.db "SELECT * FROM students LIMIT 2;"
 ```
 
+## Query Service
+
+Run the interactive CLI:
+
+```bash
+python3 src/query_service.py students.db
+```
+
+Available commands:
+
+- `load` to import a CSV into the database
+- `tables` to list tables from `sqlite_master`
+- `query` to validate and run a SQL query
+- `exit` to leave the CLI
+
+The SQL validator only allows a single `SELECT` statement. It rejects:
+
+- non-`SELECT` queries
+- unknown tables
+- unknown columns
+- ambiguous unqualified columns across joined tables
+
+Run the validator unit tests with:
+
+```bash
+python3 -m unittest tests/test_sql_validator.py
+```
+
+See [VALIDATOR_DEBUG_NOTE.md](/Users/jshao116/Documents/BU/EC530/EC530_LLM_Data_System/VALIDATOR_DEBUG_NOTE.md) for a concrete example where a validator bug was caught by tests and then fixed.
+
 ## Re-enter the environment later
 
 When you return to the project, reactivate the virtual environment before running the loader:
