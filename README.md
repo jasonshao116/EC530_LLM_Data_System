@@ -109,6 +109,7 @@ Available commands:
 - `load` to import a CSV into the database
 - `tables` to list tables from `sqlite_master`
 - `query` to validate and run a SQL query
+- `ask` to translate a natural-language request into SQL, validate it, and only then execute it
 - `exit` to leave the CLI
 
 The SQL validator only allows a single `SELECT` statement. It rejects:
@@ -118,13 +119,33 @@ The SQL validator only allows a single `SELECT` statement. It rejects:
 - unknown columns
 - ambiguous unqualified columns across joined tables
 
+## LLM Adapter
+
+The LLM adapter is implemented in
+[src/llm_adapter.py].
+It:
+
+- collects table schema context
+- builds a prompt from the schema plus the user's request
+- proposes SQL through a pluggable generator
+- does **not** execute SQL
+
+The query service treats the generated SQL as untrusted input and sends it
+through the validator before execution.
+
+Run adapter and validator tests with:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
 Run the validator unit tests with:
 
 ```bash
 python3 -m unittest tests/test_sql_validator.py
 ```
 
-See [VALIDATOR_DEBUG_NOTE.md](/Users/jshao116/Documents/BU/EC530/EC530_LLM_Data_System/VALIDATOR_DEBUG_NOTE.md) for a concrete example where a validator bug was caught by tests and then fixed.
+See [VALIDATOR_DEBUG_NOTE.md] for a concrete example where a validator bug was caught by tests and then fixed.
 
 ## Re-enter the environment later
 

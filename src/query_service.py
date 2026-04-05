@@ -7,6 +7,7 @@ import sqlite3
 from pathlib import Path
 
 from data_loader import load_csv_to_sqlite, log_error
+from llm_adapter import LLMAdapter
 from schema_manager import SchemaManager
 from sql_validator import SQLValidator
 
@@ -38,9 +39,10 @@ def interactive_cli(db_path: str | Path) -> None:
     db_path = Path(db_path)
     schema_manager = SchemaManager()
     validator = SQLValidator(schema_manager=schema_manager)
+    llm_adapter = LLMAdapter(schema_manager=schema_manager)
 
     print(f"Connected to {db_path}")
-    print("Commands: load, tables, query, help, exit")
+    print("Commands: load, tables, query, ask, help, exit")
 
     while True:
         command = input("> ").strip().lower()
@@ -53,6 +55,7 @@ def interactive_cli(db_path: str | Path) -> None:
             print("load   - import a CSV file into SQLite")
             print("tables - list known tables")
             print("query  - validate and execute a SELECT query")
+            print("ask    - convert a natural-language question into SQL, then validate it")
             print("exit   - leave the CLI")
             continue
 
@@ -94,8 +97,31 @@ def interactive_cli(db_path: str | Path) -> None:
                 print(f"Query failed: {exc}")
             continue
 
+        if command == "ask":
+            user_request = input("Ask> ").strip()
+            show_sql = input("Show generated SQL? [y/N]: ").strip().lower() in {"y", "yes"}
+            try:
+                with sqlite3.connect(db_path) as connection:
+                    proposal = llm_adapter.translate_to_sql(connection, user_request)
+                    if show_sql:
+                        print("Generated SQL:")
+                        print(proposal.sql)
+                    print(f"Explanation: {proposal.explanation}")
+
+                    validation = validator.validate_query(connection, proposal.sql)
+                    if not validation.is_valid:
+                        print(f"Rejected generated SQL: {validation.message}")
+                        continue
+
+                    columns, rows = validator.execute_query(connection, proposal.sql)
+                print(format_rows(columns, rows))
+            except Exception as exc:
+                log_error(str(exc))
+                print(f"LLM request failed: {exc}")
+            continue
+
         if command:
-            print("Unknown command. Type help, load, tables, query, or exit.")
+            print("Unknown command. Type help, load, tables, query, ask, or exit.")
 
 
 def main() -> None:
