@@ -139,6 +139,12 @@ Run adapter and validator tests with:
 python3 -m unittest discover -s tests -v
 ```
 
+## CI
+
+GitHub Actions runs the unit test suite automatically on pushes and pull
+requests using
+[.github/workflows/tests.yml](/Users/jshao116/Documents/BU/EC530/EC530_LLM_Data_System/.github/workflows/tests.yml).
+
 Run the validator unit tests with:
 
 ```bash
