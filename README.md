@@ -143,7 +143,7 @@ python3 -m unittest discover -s tests -v
 
 GitHub Actions runs the unit test suite automatically on pushes and pull
 requests using
-[.github/workflows/tests.yml](/Users/jshao116/Documents/BU/EC530/EC530_LLM_Data_System/.github/workflows/tests.yml).
+[.github/workflows/tests.yml].
 
 Run the validator unit tests with:
 
@@ -160,3 +160,7 @@ When you return to the project, reactivate the virtual environment before runnin
 ```bash
 source .venv/bin/activate
 ```
+
+## System Review Video
+
+[System Review Video](https://youtu.be/oJiVe7irF4I)
